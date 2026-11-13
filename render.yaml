@@ -6,3 +6,10 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
     healthCheckPath: /
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: MODERATOR_PASSWORD
+        sync: false
+      - key: SESSION_COOKIE_SECURE
+        value: "true"

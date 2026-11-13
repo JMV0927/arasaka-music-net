@@ -1,14 +1,62 @@
 from flask import Flask, jsonify, render_template, request, redirect, url_for
+from contextlib import closing
 from pathlib import Path
+from functools import wraps
+import hmac
 import os
+import secrets
 import sqlite3
 import datetime
+from flask import abort, session
 
 app = Flask(__name__)
+secret_key = os.environ.get("SECRET_KEY")
+moderator_password = os.environ.get("MODERATOR_PASSWORD")
+if not secret_key:
+    raise RuntimeError("Set the SECRET_KEY environment variable before starting the app.")
+if not moderator_password:
+    raise RuntimeError("Set the MODERATOR_PASSWORD environment variable before starting the app.")
+if len(moderator_password) < 16:
+    raise RuntimeError("MODERATOR_PASSWORD must contain at least 16 characters.")
+
+app.config.update(
+    SECRET_KEY=secret_key,
+    PERMANENT_SESSION_LIFETIME=datetime.timedelta(hours=12),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true",
+)
+MODERATOR_PASSWORD = moderator_password
 DATABASE_PATH = Path(os.environ.get(
     "DATABASE_PATH",
     str(Path(__file__).resolve().parent / "arasaka_music.db"),
 ))
+
+
+def generate_csrf_token():
+    token = session.get("_csrf_token")
+    if token is None:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+
+def validate_csrf_token():
+    expected_token = session.get("_csrf_token", "")
+    submitted_token = request.form.get("csrf_token", "")
+    if not expected_token or not hmac.compare_digest(submitted_token, expected_token):
+        abort(400, description="Token de seguridad inválido.")
+
+
+def moderator_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if session.get("is_moderator") is not True:
+            abort(403)
+        return view(*args, **kwargs)
+
+    return wrapped
+
 
 def init_db():
     conn = sqlite3.connect(DATABASE_PATH)
@@ -74,7 +122,66 @@ def index():
     feed = cursor.fetchall()
     conn.close()
     
-    return render_template("index.html", songs=songs, feed=feed, query=query)
+    return render_template(
+        "index.html",
+        songs=songs,
+        feed=feed,
+        query=query,
+        is_moderator=session.get("is_moderator") is True,
+        csrf_token=generate_csrf_token(),
+    )
+
+
+@app.route("/moderator/login", methods=["GET", "POST"])
+def moderator_login():
+    if request.method == "POST":
+        validate_csrf_token()
+        submitted_password = request.form.get("password", "")
+        if hmac.compare_digest(submitted_password.encode("utf-8"), MODERATOR_PASSWORD.encode("utf-8")):
+            session.clear()
+            session["is_moderator"] = True
+            session.permanent = True
+            return redirect(url_for("index"))
+        return render_template(
+            "moderator_login.html",
+            csrf_token=generate_csrf_token(),
+            error="Clave incorrecta.",
+        ), 401
+
+    return render_template("moderator_login.html", csrf_token=generate_csrf_token())
+
+
+@app.route("/moderator/logout", methods=["POST"])
+@moderator_required
+def moderator_logout():
+    validate_csrf_token()
+    session.clear()
+    return redirect(url_for("index"))
+
+
+@app.route("/moderator/songs/<int:song_id>/delete", methods=["POST"])
+@moderator_required
+def moderator_delete_song(song_id):
+    validate_csrf_token()
+    with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+        with conn:
+            conn.execute("DELETE FROM threads WHERE song_id = ?", (song_id,))
+            result = conn.execute("DELETE FROM songs WHERE id = ?", (song_id,))
+    if result.rowcount == 0:
+        abort(404)
+    return redirect(url_for("index"))
+
+
+@app.route("/moderator/threads/<int:thread_id>/delete", methods=["POST"])
+@moderator_required
+def moderator_delete_thread(thread_id):
+    validate_csrf_token()
+    with closing(sqlite3.connect(DATABASE_PATH)) as conn:
+        with conn:
+            result = conn.execute("DELETE FROM threads WHERE id = ?", (thread_id,))
+    if result.rowcount == 0:
+        abort(404)
+    return redirect(url_for("index"))
 
 @app.route("/api/feed")
 def api_feed():

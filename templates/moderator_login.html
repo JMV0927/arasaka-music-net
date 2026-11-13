@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARASAKA // Acceso de moderación</title>
+  <style>
+    :root {
+      --arasaka-red: #ff003c;
+      --bg-dark: #0a0a0c;
+      --panel-bg: #121216;
+      --text-main: #e0e0e0;
+      --text-dim: #888899;
+    }
+    * { box-sizing: border-box; font-family: 'Courier New', Courier, monospace; }
+    body { display: grid; min-height: 100vh; place-items: center; padding: 16px; background: var(--bg-dark); color: var(--text-main); }
+    main { width: min(420px, 100%); padding: 24px; background: var(--panel-bg); border: 2px solid var(--arasaka-red); }
+    h1 { margin-bottom: 8px; color: var(--arasaka-red); font-size: 20px; }
+    p { margin-bottom: 16px; color: var(--text-dim); line-height: 1.5; }
+    label { display: block; margin-bottom: 6px; }
+    input { width: 100%; margin-bottom: 12px; padding: 11px; background: #000; border: 1px solid var(--arasaka-red); color: var(--text-main); }
+    button { width: 100%; padding: 11px; background: var(--arasaka-red); border: 0; color: #000; font-weight: bold; cursor: pointer; }
+    a { display: inline-block; margin-top: 16px; color: var(--text-dim); }
+    .error { color: #ff849f; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ACCESO DE MODERACIÓN</h1>
+    <p>Esta sección es exclusiva para el dueño de la página.</p>
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <form method="POST" action="{{ url_for('moderator_login') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label for="password">Contraseña de moderador</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+      <button type="submit">INICIAR SESIÓN</button>
+    </form>
+    <a href="{{ url_for('index') }}">Volver al buscador</a>
+  </main>
+</body>
+</html>

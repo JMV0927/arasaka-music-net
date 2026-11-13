@@ -35,6 +35,12 @@
     
     .sidebar { background: var(--panel-bg); border: 1px solid var(--arasaka-red); padding: 15px; height: fit-content; }
     .sidebar h3 { color: var(--arasaka-red); font-size: 14px; margin-bottom: 10px; }
+    .header-actions { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+    .moderator-link { color: var(--text-dim); text-decoration: none; }
+    .moderator-link:hover { color: var(--arasaka-red); }
+    .moderator-action { margin-top: 8px; }
+    .moderator-delete { padding: 6px 10px; background: #5b0017; color: #fff; font-size: 10px; }
+    .moderator-delete:hover { background: var(--arasaka-red); }
 
     .notice-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.88); }
     .notice-backdrop[hidden] { display: none; }
@@ -56,6 +62,7 @@
       .thread-box form input { width: 100% !important; }
       .thread-box form button { width: 100%; }
       .notice { padding: 18px; }
+      .header-actions { flex-wrap: wrap; }
     }
   </style>
 </head>
@@ -68,6 +75,8 @@
         <li>Escribe correctamente el nombre y evita errores de ortografía.</li>
         <li>Usa términos claros y sencillos, sin errores de sintaxis.</li>
         <li>Busca únicamente contenido relacionado con la música, como canciones, artistas o géneros.</li>
+        <li>Registra solo canciones; no agregues otro tipo de contenido.</li>
+        <li>Las publicaciones solo las puede borrar el moderador. Piensa bien antes de publicar.</li>
       </ul>
       <button id="notice-continue" type="button" disabled>Espera 15 segundos</button>
     </section>
@@ -75,7 +84,17 @@
   <div class="container" id="app-content" inert>
     <header>
       <h1>ARASAKA // NETSEARCH & FEED</h1>
-      <div style="font-size: 12px; color: var(--text-dim);">SYSTEM SECURE</div>
+      <div class="header-actions">
+        {% if is_moderator %}
+        <span style="color: var(--arasaka-red);">MODERADOR ACTIVO</span>
+        <form action="{{ url_for('moderator_logout') }}" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="moderator-delete">CERRAR SESIÓN</button>
+        </form>
+        {% else %}
+        <a class="moderator-link" href="{{ url_for('moderator_login') }}">ACCESO MODERADOR</a>
+        {% endif %}
+      </div>
     </header>
 
     <!-- BUSCADOR -->
@@ -95,6 +114,12 @@
           <p style="font-size: 12px; margin-bottom: 5px;"><strong>Descripción:</strong> {{ song[5] }}</p>
           <p style="font-size: 12px; margin-bottom: 8px;"><strong>Info Artista:</strong> {{ song[8] }}</p>
           <div class="lyrics">{{ song[9] }}</div>
+          {% if is_moderator %}
+          <form class="moderator-action" action="{{ url_for('moderator_delete_song', song_id=song[0]) }}" method="POST" onsubmit="return confirm('¿Eliminar esta canción y sus publicaciones?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="moderator-delete">ELIMINAR CANCIÓN</button>
+          </form>
+          {% endif %}
 
           <!-- HILOS DE ESTA CANCIÓN -->
           <div class="thread-box">
@@ -138,6 +163,12 @@
               <span>♫ {{ post[5] }}</span>
               <a href="/upvote/{{ post[0] }}" style="color: var(--arasaka-red); text-decoration: none;">▲ [{{ post[4] }}]</a>
             </div>
+            {% if is_moderator %}
+            <form class="moderator-action" action="{{ url_for('moderator_delete_thread', thread_id=post[0]) }}" method="POST" onsubmit="return confirm('¿Eliminar esta publicación?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="moderator-delete">ELIMINAR PUBLICACIÓN</button>
+            </form>
+            {% endif %}
           </div>
           {% endfor %}
         </div>
@@ -146,10 +177,12 @@
     </div>
   </div>
   <script>
+    const isModerator = {{ is_moderator|tojson }};
+    const csrfToken = {{ csrf_token|tojson }};
     const noticeBackdrop = document.getElementById("notice-backdrop");
     const noticeContinue = document.getElementById("notice-continue");
     const appContent = document.getElementById("app-content");
-    const noticeStorageKey = "arasaka-search-notice-accepted";
+    const noticeStorageKey = "arasaka-search-notice-accepted-v2";
 
     if (sessionStorage.getItem(noticeStorageKey) === "true") {
       noticeBackdrop.hidden = true;
@@ -223,6 +256,30 @@
 
           footer.append(song, upvote);
           article.append(byline, content, footer);
+          if (isModerator) {
+            const deleteForm = document.createElement("form");
+            deleteForm.className = "moderator-action";
+            deleteForm.method = "POST";
+            deleteForm.action = `/moderator/threads/${post.id}/delete`;
+            deleteForm.addEventListener("submit", (event) => {
+              if (!window.confirm("¿Eliminar esta publicación?")) {
+                event.preventDefault();
+              }
+            });
+
+            const csrfInput = document.createElement("input");
+            csrfInput.type = "hidden";
+            csrfInput.name = "csrf_token";
+            csrfInput.value = csrfToken;
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "submit";
+            deleteButton.className = "moderator-delete";
+            deleteButton.textContent = "ELIMINAR PUBLICACIÓN";
+
+            deleteForm.append(csrfInput, deleteButton);
+            article.append(deleteForm);
+          }
           globalFeed.append(article);
         }
 
