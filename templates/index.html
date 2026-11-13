@@ -49,6 +49,21 @@
     .notice p, .notice li { font-size: 14px; line-height: 1.6; }
     .notice ul { padding-left: 22px; margin: 12px 0 18px; }
     .notice button:disabled { background: #555; color: #ddd; cursor: not-allowed; box-shadow: none; }
+    .tutorial-prompt { margin: 0 0 12px; }
+    .tutorial-prompt p { margin-bottom: 6px; color: var(--text-dim); font-size: 11px; }
+    .tutorial-launch { width: 100%; padding: 8px; font-size: 10px; }
+    .tutorial-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.78); }
+    .tutorial-backdrop[hidden] { display: none; }
+    .tutorial-dialog { position: relative; z-index: 22; width: min(460px, 100%); padding: 22px; background: var(--panel-bg); border: 2px solid var(--arasaka-red); box-shadow: 0 0 24px var(--arasaka-glow); }
+    .tutorial-dialog h2 { margin: 8px 0 12px; color: var(--arasaka-red); font-size: 18px; }
+    .tutorial-dialog p { font-size: 14px; line-height: 1.6; }
+    .tutorial-progress { color: var(--text-dim); font-size: 11px !important; }
+    .tutorial-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+    .tutorial-actions button { padding: 9px 12px; font-size: 11px; }
+    .tutorial-secondary { background: #333; color: var(--text-main); }
+    .tutorial-secondary:hover { background: #555; }
+    .tutorial-close { float: right; padding: 5px 8px; font-size: 10px; }
+    .tutorial-highlight { position: relative; z-index: 21 !important; outline: 3px solid var(--arasaka-red); outline-offset: 3px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.68); }
 
     @media (max-width: 700px) {
       body { padding: 12px; }
@@ -63,6 +78,9 @@
       .thread-box form button { width: 100%; }
       .notice { padding: 18px; }
       .header-actions { flex-wrap: wrap; }
+      .tutorial-dialog { padding: 18px; }
+      .tutorial-actions { flex-direction: column-reverse; }
+      .tutorial-actions button { width: 100%; }
     }
   </style>
 </head>
@@ -76,6 +94,7 @@
         <li>Usa términos claros y sencillos, sin errores de sintaxis.</li>
         <li>Busca únicamente contenido relacionado con la música, como canciones, artistas o géneros.</li>
         <li>Registra solo canciones; no agregues otro tipo de contenido.</li>
+        <li>Para registrar una canción, completa los campos obligatorios y pulsa «Guardar». Encontrarás una guía paso a paso junto al formulario.</li>
         <li>Las publicaciones solo las puede borrar el moderador. Piensa bien antes de publicar.</li>
       </ul>
       <button id="notice-continue" type="button" disabled>Espera 15 segundos</button>
@@ -138,19 +157,23 @@
       </div>
 
       <!-- COLUMNA DERECHA: FORMULARIO Y FEED GLOBAL -->
-      <div class="sidebar">
+      <div class="sidebar" id="register-song-panel">
         <h3>+ REGISTRAR CANCIÓN</h3>
-        <form action="/add_song" method="POST">
-          <input type="text" name="title" placeholder="Canción" style="margin-bottom: 8px; font-size: 11px;" required>
-          <input type="text" name="artist" placeholder="Artista" style="margin-bottom: 8px; font-size: 11px;" required>
-          <input type="text" name="creator" placeholder="Creador" style="margin-bottom: 8px; font-size: 11px;" required>
-          <input type="text" name="genre" placeholder="Género" style="margin-bottom: 8px; font-size: 11px;" required>
-          <textarea name="genre_desc" placeholder="Desc. Género..." rows="2" style="margin-bottom: 8px; font-size: 11px;"></textarea>
-          <input type="text" name="release_date" placeholder="Fecha" style="margin-bottom: 8px; font-size: 11px;" required>
-          <input type="text" name="duration" placeholder="Duración" style="margin-bottom: 8px; font-size: 11px;" required>
-          <textarea name="artist_info" placeholder="Info Artista..." rows="2" style="margin-bottom: 8px; font-size: 11px;"></textarea>
-          <textarea name="lyrics" placeholder="Letra..." rows="3" style="margin-bottom: 8px; font-size: 11px;" required></textarea>
-          <button type="submit" style="width: 100%; font-size: 11px;">GUARDAR</button>
+        <div class="tutorial-prompt">
+          <p>¿Primera vez? Te guiamos paso a paso.</p>
+          <button class="tutorial-launch" id="tutorial-launch" type="button" aria-haspopup="dialog">VER CÓMO AGREGAR UNA CANCIÓN</button>
+        </div>
+        <form id="song-form" action="/add_song" method="POST">
+          <input id="song-title" type="text" name="title" placeholder="Canción *" aria-label="Canción (obligatorio)" style="margin-bottom: 8px; font-size: 11px;" required>
+          <input id="song-artist" type="text" name="artist" placeholder="Artista *" aria-label="Artista (obligatorio)" style="margin-bottom: 8px; font-size: 11px;" required>
+          <input id="song-creator" type="text" name="creator" placeholder="Creador *" aria-label="Creador (obligatorio)" style="margin-bottom: 8px; font-size: 11px;" required>
+          <input id="song-genre" type="text" name="genre" placeholder="Género *" aria-label="Género (obligatorio)" style="margin-bottom: 8px; font-size: 11px;" required>
+          <textarea id="song-genre-desc" name="genre_desc" placeholder="Desc. género (opcional)..." aria-label="Descripción del género (opcional)" rows="2" style="margin-bottom: 8px; font-size: 11px;"></textarea>
+          <input id="song-release-date" type="text" name="release_date" placeholder="Fecha *" aria-label="Fecha (obligatorio)" style="margin-bottom: 8px; font-size: 11px;" required>
+          <input id="song-duration" type="text" name="duration" placeholder="Duración *" aria-label="Duración (obligatorio)" style="margin-bottom: 8px; font-size: 11px;" required>
+          <textarea id="song-artist-info" name="artist_info" placeholder="Info artista (opcional)..." aria-label="Información del artista (opcional)" rows="2" style="margin-bottom: 8px; font-size: 11px;"></textarea>
+          <textarea id="song-lyrics" name="lyrics" placeholder="Letra *" aria-label="Letra (obligatorio)" rows="3" style="margin-bottom: 8px; font-size: 11px;" required></textarea>
+          <button id="save-song-button" type="submit" style="width: 100%; font-size: 11px;">GUARDAR</button>
         </form>
 
         <h3 style="margin-top: 25px;">🌐 FEED GLOBAL</h3>
@@ -176,13 +199,25 @@
       </div>
     </div>
   </div>
+  <div class="tutorial-backdrop" id="tutorial-backdrop" hidden>
+    <section class="tutorial-dialog" id="tutorial-dialog" role="dialog" aria-modal="true" aria-labelledby="tutorial-title" aria-describedby="tutorial-description" tabindex="-1">
+      <button class="tutorial-close tutorial-secondary" id="tutorial-close" type="button" aria-label="Cerrar tutorial">CERRAR</button>
+      <p class="tutorial-progress" id="tutorial-progress" aria-live="polite"></p>
+      <h2 id="tutorial-title"></h2>
+      <p id="tutorial-description"></p>
+      <div class="tutorial-actions">
+        <button class="tutorial-secondary" id="tutorial-previous" type="button">ANTERIOR</button>
+        <button id="tutorial-next" type="button">SIGUIENTE</button>
+      </div>
+    </section>
+  </div>
   <script>
     const isModerator = {{ is_moderator|tojson }};
     const csrfToken = {{ csrf_token|tojson }};
     const noticeBackdrop = document.getElementById("notice-backdrop");
     const noticeContinue = document.getElementById("notice-continue");
     const appContent = document.getElementById("app-content");
-    const noticeStorageKey = "arasaka-search-notice-accepted-v2";
+    const noticeStorageKey = "arasaka-search-notice-accepted-v3";
 
     if (sessionStorage.getItem(noticeStorageKey) === "true") {
       noticeBackdrop.hidden = true;
@@ -218,6 +253,116 @@
         }
       });
     }
+
+    const tutorialBackdrop = document.getElementById("tutorial-backdrop");
+    const tutorialTitle = document.getElementById("tutorial-title");
+    const tutorialDescription = document.getElementById("tutorial-description");
+    const tutorialProgress = document.getElementById("tutorial-progress");
+    const tutorialPrevious = document.getElementById("tutorial-previous");
+    const tutorialNext = document.getElementById("tutorial-next");
+    const tutorialClose = document.getElementById("tutorial-close");
+    const tutorialLaunch = document.getElementById("tutorial-launch");
+    const tutorialSteps = [
+      {
+        selector: "#song-form",
+        title: "Registra solo canciones",
+        description: "Este formulario sirve para agregar canciones al archivo musical. No publiques aquí anuncios ni contenido que no esté relacionado con la música."
+      },
+      {
+        selector: "#song-title",
+        title: "Completa los campos obligatorios",
+        description: "Escribe correctamente la canción y el artista. También son obligatorios el creador, género, fecha, duración y letra. Los campos obligatorios tienen un asterisco (*)."
+      },
+      {
+        selector: "#song-genre-desc",
+        title: "Agrega detalles opcionales",
+        description: "La descripción del género y la información del artista son opcionales. Añade solo datos útiles y relacionados con esa canción o artista."
+      },
+      {
+        selector: "#save-song-button",
+        title: "Revisa y guarda",
+        description: "Comprueba que no haya errores y pulsa GUARDAR. La canción aparecerá en el archivo musical."
+      }
+    ];
+    let tutorialStepIndex = 0;
+    let tutorialTarget = null;
+    let previousBodyOverflow = "";
+
+    function showTutorialStep(index) {
+      if (tutorialTarget) {
+        tutorialTarget.classList.remove("tutorial-highlight");
+      }
+
+      tutorialStepIndex = index;
+      const step = tutorialSteps[index];
+      tutorialTarget = document.querySelector(step.selector);
+      if (!(tutorialTarget instanceof HTMLElement)) {
+        throw new Error(`No se encontró el elemento del tutorial: ${step.selector}`);
+      }
+
+      tutorialTitle.textContent = step.title;
+      tutorialDescription.textContent = step.description;
+      tutorialProgress.textContent = `PASO ${index + 1} DE ${tutorialSteps.length}`;
+      tutorialPrevious.disabled = index === 0;
+      tutorialNext.textContent = index === tutorialSteps.length - 1 ? "FINALIZAR" : "SIGUIENTE";
+      tutorialTarget.classList.add("tutorial-highlight");
+      tutorialTarget.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      tutorialNext.focus();
+    }
+
+    function closeTutorial() {
+      if (tutorialTarget) {
+        tutorialTarget.classList.remove("tutorial-highlight");
+        tutorialTarget = null;
+      }
+      tutorialBackdrop.hidden = true;
+      appContent.inert = false;
+      document.body.style.overflow = previousBodyOverflow;
+      tutorialLaunch.focus();
+    }
+
+    tutorialLaunch.addEventListener("click", () => {
+      previousBodyOverflow = document.body.style.overflow;
+      tutorialBackdrop.hidden = false;
+      appContent.inert = true;
+      document.body.style.overflow = "hidden";
+      showTutorialStep(0);
+    });
+
+    tutorialPrevious.addEventListener("click", () => {
+      if (tutorialStepIndex > 0) {
+        showTutorialStep(tutorialStepIndex - 1);
+      }
+    });
+
+    tutorialNext.addEventListener("click", () => {
+      if (tutorialStepIndex === tutorialSteps.length - 1) {
+        closeTutorial();
+      } else {
+        showTutorialStep(tutorialStepIndex + 1);
+      }
+    });
+
+    tutorialClose.addEventListener("click", closeTutorial);
+
+    document.addEventListener("keydown", (event) => {
+      if (tutorialBackdrop.hidden) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeTutorial();
+      } else if (event.key === "Tab") {
+        const focusableButtons = [tutorialClose, tutorialPrevious, tutorialNext].filter((button) => !button.disabled);
+        const firstButton = focusableButtons[0];
+        const lastButton = focusableButtons[focusableButtons.length - 1];
+        if (event.shiftKey && document.activeElement === firstButton) {
+          event.preventDefault();
+          lastButton.focus();
+        } else if (!event.shiftKey && document.activeElement === lastButton) {
+          event.preventDefault();
+          firstButton.focus();
+        }
+      }
+    });
 
     const globalFeed = document.getElementById("global-feed");
     const feedStatus = document.getElementById("feed-status");
