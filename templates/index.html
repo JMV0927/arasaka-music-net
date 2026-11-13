@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARASAKA // NetSearch OS v5.0</title>
+  <style>
+    :root {
+      --arasaka-red: #ff003c;
+      --arasaka-glow: rgba(255, 0, 60, 0.4);
+      --bg-dark: #0a0a0c;
+      --panel-bg: #121216;
+      --text-main: #e0e0e0;
+      --text-dim: #888899;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; }
+    body { background-color: var(--bg-dark); color: var(--text-main); padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    header { border-bottom: 2px solid var(--arasaka-red); padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    h1 { color: var(--arasaka-red); letter-spacing: 3px; font-size: 22px; }
+    
+    .search-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+    input, textarea { width: 100%; padding: 10px; background: #000; border: 1px solid var(--arasaka-red); color: var(--text-main); outline: none; }
+    button { padding: 10px 20px; background: var(--arasaka-red); color: #000; font-weight: bold; border: none; cursor: pointer; text-transform: uppercase; }
+    button:hover { background: #fff; box-shadow: 0 0 10px var(--arasaka-glow); }
+
+    .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+    .card { background: var(--panel-bg); border-left: 4px solid var(--arasaka-red); padding: 15px; margin-bottom: 15px; }
+    .song-title { font-size: 18px; color: #fff; font-weight: bold; }
+    .meta { font-size: 11px; color: var(--arasaka-red); margin-bottom: 10px; }
+    .lyrics { background: #000; padding: 10px; font-size: 12px; color: #aaa; white-space: pre-line; border: 1px dashed #333; max-height: 120px; overflow-y: auto; }
+    
+    .thread-box { background: #08080a; border: 1px solid #222; padding: 8px; margin-top: 10px; font-size: 12px; }
+    .post { background: #101014; padding: 6px; margin: 5px 0; border-left: 2px solid var(--arasaka-red); }
+    
+    .sidebar { background: var(--panel-bg); border: 1px solid var(--arasaka-red); padding: 15px; height: fit-content; }
+    .sidebar h3 { color: var(--arasaka-red); font-size: 14px; margin-bottom: 10px; }
+
+    .notice-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.88); }
+    .notice-backdrop[hidden] { display: none; }
+    .notice { width: min(520px, 100%); max-height: 90vh; overflow-y: auto; padding: 24px; background: var(--panel-bg); border: 2px solid var(--arasaka-red); box-shadow: 0 0 24px var(--arasaka-glow); }
+    .notice h2 { margin-bottom: 14px; color: var(--arasaka-red); font-size: 18px; }
+    .notice p, .notice li { font-size: 14px; line-height: 1.6; }
+    .notice ul { padding-left: 22px; margin: 12px 0 18px; }
+    .notice button:disabled { background: #555; color: #ddd; cursor: not-allowed; box-shadow: none; }
+
+    @media (max-width: 700px) {
+      body { padding: 12px; }
+      header { align-items: flex-start; flex-direction: column; gap: 8px; }
+      h1 { font-size: 17px; letter-spacing: 1px; }
+      .search-bar { gap: 6px; }
+      .search-bar input { min-width: 0; }
+      .search-bar button { padding: 10px 12px; }
+      .grid { grid-template-columns: 1fr; }
+      .thread-box form { flex-direction: column; }
+      .thread-box form input { width: 100% !important; }
+      .thread-box form button { width: 100%; }
+      .notice { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="notice-backdrop" id="notice-backdrop">
+    <section class="notice" id="notice-dialog" role="dialog" aria-modal="true" aria-labelledby="notice-title" aria-describedby="notice-description" tabindex="-1">
+      <h2 id="notice-title">ANTES DE USAR EL BUSCADOR</h2>
+      <p id="notice-description">Para obtener mejores resultados:</p>
+      <ul>
+        <li>Escribe correctamente el nombre y evita errores de ortografía.</li>
+        <li>Usa términos claros y sencillos, sin errores de sintaxis.</li>
+        <li>Busca únicamente contenido relacionado con la música, como canciones, artistas o géneros.</li>
+      </ul>
+      <button id="notice-continue" type="button" disabled>Espera 15 segundos</button>
+    </section>
+  </div>
+  <div class="container" id="app-content" inert>
+    <header>
+      <h1>ARASAKA // NETSEARCH & FEED</h1>
+      <div style="font-size: 12px; color: var(--text-dim);">SYSTEM SECURE</div>
+    </header>
+
+    <!-- BUSCADOR -->
+    <form class="search-bar" method="GET" action="/">
+      <input type="text" name="q" value="{{ query }}" placeholder="Buscar artista, canción o género...">
+      <button type="submit">BUSCAR</button>
+    </form>
+
+    <div class="grid">
+      <!-- COLUMNA IZQUIERDA: EXPLORADOR Y CANCIONES -->
+      <div>
+        <h2 style="font-size: 14px; color: var(--arasaka-red); margin-bottom: 10px;">// ARCHIVO MUSICAL</h2>
+        {% for song in songs %}
+        <div class="card">
+          <div class="song-title">{{ song[1] }}</div>
+          <div class="meta">ARTISTA: {{ song[2] }} // CREADOR: {{ song[3] }} // GÉNERO: {{ song[4] }}</div>
+          <p style="font-size: 12px; margin-bottom: 5px;"><strong>Descripción:</strong> {{ song[5] }}</p>
+          <p style="font-size: 12px; margin-bottom: 8px;"><strong>Info Artista:</strong> {{ song[8] }}</p>
+          <div class="lyrics">{{ song[9] }}</div>
+
+          <!-- HILOS DE ESTA CANCIÓN -->
+          <div class="thread-box">
+            <div style="color: var(--arasaka-red); font-weight: bold; margin-bottom: 5px;">HILOS DE DISCUSIÓN</div>
+            
+            <form action="/post_thread/{{ song[0] }}" method="POST" style="display: flex; gap: 5px; margin-bottom: 8px;">
+              <input type="text" name="author" placeholder="Tu alias..." style="width: 30%; font-size: 11px;" required>
+              <input type="text" name="content" placeholder="Comentar..." style="font-size: 11px;" required>
+              <button type="submit" style="font-size: 10px; padding: 5px 10px;">POST</button>
+            </form>
+          </div>
+        </div>
+        {% else %}
+        <div style="color: var(--text-dim); text-align: center; padding: 30px;">NO SE ENCONTRARON REGISTROS.</div>
+        {% endfor %}
+      </div>
+
+      <!-- COLUMNA DERECHA: FORMULARIO Y FEED GLOBAL -->
+      <div class="sidebar">
+        <h3>+ REGISTRAR CANCIÓN</h3>
+        <form action="/add_song" method="POST">
+          <input type="text" name="title" placeholder="Canción" style="margin-bottom: 8px; font-size: 11px;" required>
+          <input type="text" name="artist" placeholder="Artista" style="margin-bottom: 8px; font-size: 11px;" required>
+          <input type="text" name="creator" placeholder="Creador" style="margin-bottom: 8px; font-size: 11px;" required>
+          <input type="text" name="genre" placeholder="Género" style="margin-bottom: 8px; font-size: 11px;" required>
+          <textarea name="genre_desc" placeholder="Desc. Género..." rows="2" style="margin-bottom: 8px; font-size: 11px;"></textarea>
+          <input type="text" name="release_date" placeholder="Fecha" style="margin-bottom: 8px; font-size: 11px;" required>
+          <input type="text" name="duration" placeholder="Duración" style="margin-bottom: 8px; font-size: 11px;" required>
+          <textarea name="artist_info" placeholder="Info Artista..." rows="2" style="margin-bottom: 8px; font-size: 11px;"></textarea>
+          <textarea name="lyrics" placeholder="Letra..." rows="3" style="margin-bottom: 8px; font-size: 11px;" required></textarea>
+          <button type="submit" style="width: 100%; font-size: 11px;">GUARDAR</button>
+        </form>
+
+        <h3 style="margin-top: 25px;">🌐 FEED GLOBAL</h3>
+        <div id="global-feed" style="max-height: 350px; overflow-y: auto;">
+          {% for post in feed %}
+          <div class="post">
+            <div style="font-size: 10px; color: var(--arasaka-red);">@{{ post[1] }} <span style="color:#666;">({{ post[2] }})</span></div>
+            <div style="font-size: 11px; margin: 2px 0;">{{ post[3] }}</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: var(--text-dim);">
+              <span>♫ {{ post[5] }}</span>
+              <a href="/upvote/{{ post[0] }}" style="color: var(--arasaka-red); text-decoration: none;">▲ [{{ post[4] }}]</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <p id="feed-status" role="status" style="font-size: 10px; color: var(--text-dim); margin-top: 6px;"></p>
+      </div>
+    </div>
+  </div>
+  <script>
+    const noticeBackdrop = document.getElementById("notice-backdrop");
+    const noticeContinue = document.getElementById("notice-continue");
+    const appContent = document.getElementById("app-content");
+    const noticeStorageKey = "arasaka-search-notice-accepted";
+
+    if (sessionStorage.getItem(noticeStorageKey) === "true") {
+      noticeBackdrop.hidden = true;
+      appContent.inert = false;
+    } else {
+      document.body.style.overflow = "hidden";
+      document.getElementById("notice-dialog").focus();
+      const noticeUnlockAt = Date.now() + 15000;
+      const noticeTimer = window.setInterval(() => {
+        const secondsRemaining = Math.ceil((noticeUnlockAt - Date.now()) / 1000);
+        if (secondsRemaining > 0) {
+          noticeContinue.textContent = `Espera ${secondsRemaining} segundos`;
+          return;
+        }
+
+        window.clearInterval(noticeTimer);
+        noticeContinue.disabled = false;
+        noticeContinue.textContent = "ENTENDIDO, CONTINUAR";
+        noticeContinue.focus();
+      }, 250);
+
+      noticeContinue.addEventListener("click", () => {
+        if (noticeContinue.disabled) return;
+        sessionStorage.setItem(noticeStorageKey, "true");
+        noticeBackdrop.hidden = true;
+        appContent.inert = false;
+        document.body.style.overflow = "";
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !noticeBackdrop.hidden) {
+          event.preventDefault();
+        }
+      });
+    }
+
+    const globalFeed = document.getElementById("global-feed");
+    const feedStatus = document.getElementById("feed-status");
+
+    async function refreshFeed() {
+      try {
+        const response = await fetch("/api/feed");
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const posts = await response.json();
+        globalFeed.replaceChildren();
+
+        for (const post of posts) {
+          const article = document.createElement("div");
+          article.className = "post";
+
+          const byline = document.createElement("div");
+          byline.style.cssText = "font-size: 10px; color: var(--arasaka-red);";
+          byline.textContent = `@${post.author} (${post.timestamp})`;
+
+          const content = document.createElement("div");
+          content.style.cssText = "font-size: 11px; margin: 2px 0;";
+          content.textContent = post.content;
+
+          const footer = document.createElement("div");
+          footer.style.cssText = "display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: var(--text-dim);";
+
+          const song = document.createElement("span");
+          song.textContent = `♫ ${post.song}`;
+
+          const upvote = document.createElement("a");
+          upvote.href = `/upvote/${post.id}`;
+          upvote.style.cssText = "color: var(--arasaka-red); text-decoration: none;";
+          upvote.textContent = `▲ [${post.upvotes}]`;
+
+          footer.append(song, upvote);
+          article.append(byline, content, footer);
+          globalFeed.append(article);
+        }
+
+        feedStatus.textContent = "";
+      } catch (error) {
+        feedStatus.textContent = "No se pudo actualizar el feed. Reintentando...";
+        console.error("Error al actualizar el feed:", error);
+      }
+    }
+
+    refreshFeed();
+    window.setInterval(refreshFeed, 3000);
+  </script>
+</body>
+</html>
